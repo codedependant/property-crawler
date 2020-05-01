@@ -3,6 +3,7 @@
 `
 node extract_list_data.js
 `
+
 creates `property_list_data.json`
 
 `
