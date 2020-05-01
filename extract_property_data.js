@@ -1,10 +1,16 @@
-const puppeteer = require('puppeteer');
+// const puppeteer = require('puppeteer');
 const numeral = require('numeral');
 const { URL } = require('url');
 const fse = require('fs-extra'); // v 5.0.0
 const path = require('path');
 const _ = require('lodash');
 const fs = require('fs');
+// const randomUA = require('modern-random-ua');
+const puppeteer = require('puppeteer-extra')
+ 
+// add stealth plugin and use defaults (all evasion techniques)
+const StealthPlugin = require('puppeteer-extra-plugin-stealth')
+puppeteer.use(StealthPlugin())
 
 // function getLabelNode(label) {
 //   const node = document.evaluate(`//div[text()='${label}']`, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
@@ -108,8 +114,8 @@ function formatData(data) {
       : 0;
 
   const calculatedRatesLevies =
-    formattedData['Rates'] && formattedData['Levies']
-      ? Math.round(formattedData['Rates'] + formattedData['Levies'])
+    formattedData['Rates and Taxes'] && formattedData['Levies']
+      ? Math.round(formattedData['Rates and Taxes'] + formattedData['Levies'])
       : 0;
 
   return {
@@ -124,23 +130,32 @@ const waitFor = (ms) => new Promise(r => setTimeout(r, ms));
 
 (async () => {
   const urls = JSON.parse(fs.readFileSync('property_urls.json'));
+  let existingPropertyData = [];
+  try {
+    existingPropertyData = JSON.parse(fs.readFileSync('property_data.json'));
+  } catch(e){
+    console.log('no file');
+  }
+
+  const unextractedUrls = urls.filter(url => !existingPropertyData.find(property => property.url === url));
+  console.log('CHE: unextractedUrls', unextractedUrls);
+  const propertiesData = existingPropertyData;
 
   const browser = await puppeteer.launch({headless: false});
   const page = await browser.newPage();
 
-  const propertiesData = [];
 
-  await asyncForEach(urls, async (path) => {
+  await asyncForEach(unextractedUrls, async (path) => {
     const url = `https://www.property24.com${path}`;
     try {
+      await page.setUserAgent('Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/78.0.3904.108 Safari/537.36');
       const data = await getPropertyData(page, url);
-      console.log('CHE: data', data);
       propertiesData.push(data);
       fs.writeFileSync('property_data.json', JSON.stringify(propertiesData));
     } catch(error) {
       console.log(url, error.message);
     }
-    await waitFor(15000);
+    await waitFor(15000 + Math.random() * 15000);
   });
 
   // const url = 'https://www.property24.com/for-sale/de-waterkant/cape-town/western-cape/9141/106333954';
